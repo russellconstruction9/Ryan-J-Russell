@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, type CompanyUser, type CompanyInvitation } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
+import { Loader } from '../Loader';
 
 export const UserManagement: React.FC = () => {
   const { user, currentCompany } = useAuth();
@@ -11,6 +12,7 @@ export const UserManagement: React.FC = () => {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'admin' | 'manager' | 'member'>('member');
   const [inviting, setInviting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user && currentCompany) {
@@ -22,12 +24,13 @@ export const UserManagement: React.FC = () => {
   const fetchCompanyUsers = async () => {
     if (!currentCompany) return;
     
+    setError(null);
     try {
       const { data, error } = await supabase
         .from('company_users')
         .select(`
           *,
-          profiles!inner(email, full_name)
+          user:profiles!inner(email, full_name)
         `)
         .eq('company_id', currentCompany.id)
         .eq('is_active', true)
@@ -37,6 +40,7 @@ export const UserManagement: React.FC = () => {
       setCompanyUsers(data || []);
     } catch (error) {
       console.error('Error fetching company users:', error);
+      setError('Failed to load team members');
     }
   };
 
@@ -56,6 +60,7 @@ export const UserManagement: React.FC = () => {
       setInvitations(data || []);
     } catch (error) {
       console.error('Error fetching invitations:', error);
+      setError('Failed to load invitations');
     } finally {
       setLoading(false);
     }
@@ -65,20 +70,8 @@ export const UserManagement: React.FC = () => {
     if (!inviteEmail.trim() || !currentCompany || !user) return;
     
     setInviting(true);
+    setError(null);
     try {
-      // Check if user already exists in company
-      const { data: existingUser } = await supabase
-        .from('company_users')
-        .select('id')
-        .eq('company_id', currentCompany.id)
-        .eq('user_id', user.id)
-        .single();
-      
-      if (existingUser) {
-        alert('User is already a member of this company');
-        return;
-      }
-
       // Check if invitation already exists
       const { data: existingInvite } = await supabase
         .from('company_invitations')
@@ -86,10 +79,10 @@ export const UserManagement: React.FC = () => {
         .eq('company_id', currentCompany.id)
         .eq('email', inviteEmail.toLowerCase())
         .is('accepted_at', null)
-        .single();
+        .maybeSingle();
       
       if (existingInvite) {
-        alert('An invitation has already been sent to this email address');
+        setError('An invitation has already been sent to this email address');
         return;
       }
 
@@ -112,11 +105,9 @@ export const UserManagement: React.FC = () => {
       setInviteEmail('');
       setInviteRole('member');
       setShowInviteModal(false);
-      
-      alert('Invitation sent successfully!');
     } catch (error) {
       console.error('Error inviting user:', error);
-      alert('Failed to send invitation. Please try again.');
+      setError('Failed to send invitation. Please try again.');
     } finally {
       setInviting(false);
     }
@@ -137,7 +128,7 @@ export const UserManagement: React.FC = () => {
       await fetchCompanyUsers();
     } catch (error) {
       console.error('Error updating user role:', error);
-      alert('Failed to update user role');
+      setError('Failed to update user role');
     }
   };
 
@@ -160,7 +151,7 @@ export const UserManagement: React.FC = () => {
       await fetchCompanyUsers();
     } catch (error) {
       console.error('Error removing user:', error);
-      alert('Failed to remove user');
+      setError('Failed to remove user');
     }
   };
 
@@ -176,7 +167,7 @@ export const UserManagement: React.FC = () => {
       await fetchInvitations();
     } catch (error) {
       console.error('Error canceling invitation:', error);
-      alert('Failed to cancel invitation');
+      setError('Failed to cancel invitation');
     }
   };
 
@@ -195,7 +186,7 @@ export const UserManagement: React.FC = () => {
   };
 
   if (loading) {
-    return <div className="flex justify-center p-8">Loading users...</div>;
+    return <Loader />;
   }
 
   return (
@@ -212,6 +203,12 @@ export const UserManagement: React.FC = () => {
           Invite User
         </button>
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-4">
+          <p className="text-red-700 text-sm">{error}</p>
+        </div>
+      )}
 
       {/* Current Users */}
       <div className="bg-white rounded-lg shadow">
@@ -242,10 +239,10 @@ export const UserManagement: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
                       <div className="text-sm font-medium text-slate-900">
-                        {companyUser.profiles?.full_name || 'Unknown User'}
+                        {companyUser.user?.full_name || 'Unknown User'}
                       </div>
                       <div className="text-sm text-slate-500">
-                        {companyUser.profiles?.email}
+                        {companyUser.user?.email}
                       </div>
                     </div>
                   </td>
@@ -279,6 +276,9 @@ export const UserManagement: React.FC = () => {
                     )}
                     {companyUser.user_id === user?.id && (
                       <span className="text-slate-500">You</span>
+                    )}
+                    {companyUser.role === 'owner' && companyUser.user_id !== user?.id && (
+                      <span className="text-slate-500">Company Owner</span>
                     )}
                   </td>
                 </tr>
@@ -354,6 +354,12 @@ export const UserManagement: React.FC = () => {
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold text-slate-900 mb-4">Invite New User</h3>
             
+            {error && (
+              <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-3">
+                <p className="text-red-700 text-sm">{error}</p>
+              </div>
+            )}
+            
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -391,6 +397,7 @@ export const UserManagement: React.FC = () => {
                   setShowInviteModal(false);
                   setInviteEmail('');
                   setInviteRole('member');
+                  setError(null);
                 }}
                 disabled={inviting}
                 className="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed"
@@ -404,6 +411,13 @@ export const UserManagement: React.FC = () => {
               >
                 {inviting ? 'Sending...' : 'Send Invitation'}
               </button>
+            </div>
+            
+            <div className="mt-4 p-3 bg-blue-50 rounded-md">
+              <p className="text-blue-700 text-sm">
+                <strong>Note:</strong> The invited user will need to create their own account using this email address. 
+                Once they sign up, they'll automatically be added to your company.
+              </p>
             </div>
           </div>
         </div>
