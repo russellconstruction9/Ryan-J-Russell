@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { AuthForm } from './components/auth/AuthForm';
@@ -47,10 +46,10 @@ const App: React.FC = () => {
 
   const renderCurrentPage = () => {
     switch (currentPage) {
-     case 'dashboard':
-       return <Dashboard onPageChange={setCurrentPage} />;
-     case 'upload':
-       return <UploadPage />;
+      case 'dashboard':
+        return <Dashboard onPageChange={setCurrentPage} />;
+      case 'upload':
+        return <UploadPage />;
       case 'calendar':
         return <Calendar />;
       case 'customers':
