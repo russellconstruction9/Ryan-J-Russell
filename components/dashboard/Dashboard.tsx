@@ -22,11 +22,19 @@ export const Dashboard: React.FC = () => {
     recentWorkOrders: []
   });
   const [loading, setLoading] = useState(true);
+ const [currentDate, setCurrentDate] = useState(new Date());
 
   useEffect(() => {
     if (user) {
       fetchDashboardData();
     }
+   
+   // Update current date every minute
+   const timer = setInterval(() => {
+     setCurrentDate(new Date());
+   }, 60000);
+   
+   return () => clearInterval(timer);
   }, [user]);
 
   const fetchDashboardData = async () => {
@@ -89,6 +97,21 @@ export const Dashboard: React.FC = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
+ const formatCurrentDate = () => {
+   return currentDate.toLocaleDateString('en-US', {
+     weekday: 'long',
+     year: 'numeric',
+     month: 'long',
+     day: 'numeric'
+   });
+ };
+ 
+ const formatCurrentTime = () => {
+   return currentDate.toLocaleTimeString('en-US', {
+     hour: '2-digit',
+     minute: '2-digit'
+   });
+ };
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -99,6 +122,18 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
+     {/* Date and Time Header */}
+     <div className="bg-white rounded-lg shadow p-4 flex justify-between items-center">
+       <div>
+         <h2 className="text-xl font-semibold text-slate-900">{formatCurrentDate()}</h2>
+         <p className="text-slate-600">{formatCurrentTime()}</p>
+       </div>
+       <div className="text-right">
+         <p className="text-sm text-slate-600">Welcome back,</p>
+         <p className="font-medium text-slate-900">{user?.email?.split('@')[0]}</p>
+       </div>
+     </div>
+ 
       {/* Welcome Header */}
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg p-6 text-white">
         <h1 className="text-2xl font-bold mb-2">Welcome to Project ManageAI</h1>
@@ -236,21 +271,30 @@ export const Dashboard: React.FC = () => {
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold text-slate-900 mb-4">Quick Actions</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button className="flex items-center p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+         <button 
+           onClick={() => window.location.hash = '#upload'}
+           className="flex items-center p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+         >
             <span className="text-2xl mr-3">📤</span>
             <div className="text-left">
               <p className="font-medium text-slate-900">Upload New Estimate</p>
               <p className="text-sm text-slate-500">Process a new PDF estimate</p>
             </div>
           </button>
-          <button className="flex items-center p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+         <button 
+           onClick={() => window.location.hash = '#customers'}
+           className="flex items-center p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+         >
             <span className="text-2xl mr-3">👥</span>
             <div className="text-left">
               <p className="font-medium text-slate-900">Add Customer</p>
               <p className="text-sm text-slate-500">Create a new customer record</p>
             </div>
           </button>
-          <button className="flex items-center p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+         <button 
+           onClick={() => window.location.hash = '#subcontractors'}
+           className="flex items-center p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+         >
             <span className="text-2xl mr-3">🔨</span>
             <div className="text-left">
               <p className="font-medium text-slate-900">Add Subcontractor</p>
@@ -259,6 +303,61 @@ export const Dashboard: React.FC = () => {
           </button>
         </div>
       </div>
+     
+     {/* Today's Schedule / Calendar Preview */}
+     <div className="bg-white rounded-lg shadow p-6">
+       <h3 className="text-lg font-semibold text-slate-900 mb-4">Today's Overview</h3>
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+         <div>
+           <h4 className="font-medium text-slate-700 mb-3">Recent Activity</h4>
+           <div className="space-y-2">
+             {stats.recentEstimates.slice(0, 3).map((estimate, index) => (
+               <div key={estimate.id} className="flex items-center text-sm">
+                 <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                 <span className="text-slate-600">
+                   New estimate: {estimate.file_name}
+                 </span>
+               </div>
+             ))}
+             {stats.recentWorkOrders.slice(0, 2).map((workOrder, index) => (
+               <div key={workOrder.id} className="flex items-center text-sm">
+                 <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                 <span className="text-slate-600">
+                   Work order: {workOrder.work_order_number}
+                 </span>
+               </div>
+             ))}
+             {stats.recentEstimates.length === 0 && stats.recentWorkOrders.length === 0 && (
+               <p className="text-slate-500 text-sm">No recent activity</p>
+             )}
+           </div>
+         </div>
+         
+         <div>
+           <h4 className="font-medium text-slate-700 mb-3">Quick Stats</h4>
+           <div className="space-y-2 text-sm">
+             <div className="flex justify-between">
+               <span className="text-slate-600">Active Projects:</span>
+               <span className="font-medium">{stats.totalEstimates}</span>
+             </div>
+             <div className="flex justify-between">
+               <span className="text-slate-600">Total Customers:</span>
+               <span className="font-medium">{stats.totalCustomers}</span>
+             </div>
+             <div className="flex justify-between">
+               <span className="text-slate-600">Work Orders:</span>
+               <span className="font-medium">{stats.totalWorkOrders}</span>
+             </div>
+             <div className="flex justify-between border-t pt-2">
+               <span className="text-slate-600 font-medium">Total Value:</span>
+               <span className="font-bold text-indigo-600">
+                 {formatCurrency(stats.totalBudgetValue)}
+               </span>
+             </div>
+           </div>
+         </div>
+       </div>
+     </div>
     </div>
   );
 };

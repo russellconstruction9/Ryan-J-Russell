@@ -45,6 +45,10 @@ const App: React.FC = () => {
 
   const renderCurrentPage = () => {
     switch (currentPage) {
+     case 'dashboard':
+       return <Dashboard />;
+     case 'upload':
+       return <UploadPage />;
       case 'customers':
         return <CustomerList />;
       case 'subcontractors':
@@ -54,7 +58,7 @@ const App: React.FC = () => {
       case 'work-orders':
         return <div className="text-center p-8">Work Orders page coming soon...</div>;
       default:
-        return <UploadPage />;
+       return <Dashboard />;
     }
   };
 
