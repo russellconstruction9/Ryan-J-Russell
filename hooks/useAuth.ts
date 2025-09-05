@@ -53,14 +53,28 @@ export const useAuth = () => {
       // Set current company to the first one if none is set
       if (data && data.length > 0 && !currentCompany) {
         setCurrentCompany(data[0].company);
+        
+        // Update user's current_company_id in profile
+        await supabase
+          .from('profiles')
+          .update({ current_company_id: data[0].company.id })
+          .eq('id', userId);
       }
     } catch (error) {
       console.error('Error fetching user companies:', error);
     }
   };
 
-  const switchCompany = (company: Company) => {
+  const switchCompany = async (company: Company) => {
     setCurrentCompany(company);
+    
+    // Update user's current_company_id in profile
+    if (user) {
+      await supabase
+        .from('profiles')
+        .update({ current_company_id: company.id })
+        .eq('id', user.id);
+    }
   };
 
   const signUp = async (email: string, password: string, fullName?: string) => {
