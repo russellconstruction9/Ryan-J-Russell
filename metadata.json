@@ -1,0 +1,5 @@
+{
+  "name": "Insurance Budget Reconciler",
+  "description": "An application to upload a multi-page PDF insurance claim estimate and generate a single, internally consistent budget with a fixed 30% Overhead & Profit.",
+  "requestFramePermissions": []
+}
