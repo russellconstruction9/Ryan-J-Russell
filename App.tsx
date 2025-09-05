@@ -46,7 +46,7 @@ const App: React.FC = () => {
   const renderCurrentPage = () => {
     switch (currentPage) {
      case 'dashboard':
-       return <Dashboard />;
+       return <Dashboard onPageChange={setCurrentPage} />;
      case 'upload':
        return <UploadPage />;
       case 'customers':

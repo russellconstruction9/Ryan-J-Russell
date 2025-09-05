@@ -11,7 +11,11 @@ interface DashboardStats {
   recentWorkOrders: any[];
 }
 
-export const Dashboard: React.FC = () => {
+interface DashboardProps {
+  onPageChange: (page: string) => void;
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({ onPageChange }) => {
   const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
     totalCustomers: 0,
@@ -272,7 +276,7 @@ export const Dashboard: React.FC = () => {
         <h3 className="text-lg font-semibold text-slate-900 mb-4">Quick Actions</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
          <button 
-           onClick={() => window.location.hash = '#upload'}
+           onClick={() => onPageChange('upload')}
            className="flex items-center p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
          >
             <span className="text-2xl mr-3">📤</span>
@@ -282,7 +286,7 @@ export const Dashboard: React.FC = () => {
             </div>
           </button>
          <button 
-           onClick={() => window.location.hash = '#customers'}
+           onClick={() => onPageChange('customers')}
            className="flex items-center p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
          >
             <span className="text-2xl mr-3">👥</span>
@@ -292,7 +296,7 @@ export const Dashboard: React.FC = () => {
             </div>
           </button>
          <button 
-           onClick={() => window.location.hash = '#subcontractors'}
+           onClick={() => onPageChange('subcontractors')}
            className="flex items-center p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
          >
             <span className="text-2xl mr-3">🔨</span>
