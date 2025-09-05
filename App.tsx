@@ -9,7 +9,6 @@ import { CustomerList } from './components/customers/CustomerList';
 import { SubcontractorList } from './components/subcontractors/SubcontractorList';
 import { Calendar } from './components/calendar/Calendar';
 import { UserManagement } from './components/users/UserManagement';
-import { UserManagement } from './components/users/UserManagement';
 
 const App: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
@@ -65,7 +64,7 @@ const App: React.FC = () => {
       case 'work-orders':
         return <div className="text-center p-8">Work Orders page coming soon...</div>;
       default:
-       return <Dashboard />;
+        return <Dashboard onPageChange={setCurrentPage} />;
     }
   };
 
