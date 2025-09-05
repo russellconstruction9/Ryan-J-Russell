@@ -1,19 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { supabase, type Customer, type Subcontractor } from '../../lib/supabase';
-
-interface CalendarEvent {
-  id: string;
-  title: string;
-  date: string;
-  time: string;
-  type: 'estimate' | 'work_order' | 'meeting' | 'inspection';
-  description?: string;
-  customer?: string;
-  customerId?: string;
-  subcontractorId?: string;
-  subcontractor?: string;
-}
+import { supabase, type Customer, type Subcontractor, type CalendarEvent } from '../../lib/supabase';
 
 export const Calendar: React.FC = () => {
   const { user } = useAuth();
@@ -26,47 +13,19 @@ export const Calendar: React.FC = () => {
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [newEvent, setNewEvent] = useState({
     title: '',
-    date: '',
-    time: '',
-    type: 'meeting' as CalendarEvent['type'],
+    event_date: '',
+    event_time: '',
+    event_type: 'meeting' as CalendarEvent['event_type'],
     description: '',
-    customerId: '',
-    subcontractorId: ''
+    customer_id: '',
+    subcontractor_id: ''
   });
 
-  // Sample events - in a real app, these would come from the database
   useEffect(() => {
-    const sampleEvents: CalendarEvent[] = [
-      {
-        id: '1',
-        title: 'Site Inspection',
-        date: '2025-01-15',
-        time: '10:00 AM',
-        type: 'inspection',
-        description: 'Initial damage assessment',
-        customer: 'John Smith'
-      },
-      {
-        id: '2',
-        title: 'Contractor Meeting',
-        date: '2025-01-16',
-        time: '2:00 PM',
-        type: 'meeting',
-        description: 'Discuss roofing work order',
-        customer: 'Jane Doe'
-      },
-      {
-        id: '3',
-        title: 'Estimate Review',
-        date: '2025-01-18',
-        time: '11:00 AM',
-        type: 'estimate',
-        description: 'Final budget review with customer',
-        customer: 'Mike Johnson'
-      }
-    ];
-    setEvents(sampleEvents);
-  }, []);
+    if (user) {
+      fetchEvents();
+    }
+  }, [user]);
 
   // Fetch customers and subcontractors
   useEffect(() => {
@@ -74,6 +33,25 @@ export const Calendar: React.FC = () => {
       fetchCustomersAndSubcontractors();
     }
   }, [user]);
+
+  const fetchEvents = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('calendar_events')
+        .select(`
+          *,
+          customer:customers(name),
+          subcontractor:subcontractors(name, company_name)
+        `)
+        .eq('user_id', user!.id)
+        .order('event_date', { ascending: true });
+      
+      if (error) throw error;
+      setEvents(data || []);
+    } catch (error) {
+      console.error('Error fetching events:', error);
+    }
+  };
 
   const fetchCustomersAndSubcontractors = async () => {
     try {
@@ -122,7 +100,7 @@ export const Calendar: React.FC = () => {
 
   const getEventsForDate = (year: number, month: number, day: number) => {
     const dateKey = formatDateKey(year, month, day);
-    return events.filter(event => event.date === dateKey);
+    return events.filter(event => event.event_date === dateKey);
   };
 
   const navigateMonth = (direction: 'prev' | 'next') => {
@@ -147,7 +125,7 @@ export const Calendar: React.FC = () => {
     
     // Set default date for new event
     const dateString = clickedDate.toISOString().split('T')[0];
-    setNewEvent(prev => ({ ...prev, date: dateString }));
+    setNewEvent(prev => ({ ...prev, event_date: dateString }));
     
     const dayEvents = getEventsForDate(currentDate.getFullYear(), currentDate.getMonth(), day);
     if (dayEvents.length > 0) {
@@ -164,55 +142,60 @@ export const Calendar: React.FC = () => {
     setSelectedEvent(null);
     setNewEvent({
       title: '',
-      date: new Date().toISOString().split('T')[0],
-      time: '',
-      type: 'meeting',
+      event_date: new Date().toISOString().split('T')[0],
+      event_time: '',
+      event_type: 'meeting',
       description: '',
-      customerId: '',
-      subcontractorId: ''
+      customer_id: '',
+      subcontractor_id: ''
     });
     setShowEventModal(true);
   };
 
-  const handleSaveEvent = () => {
-    if (!newEvent.title || !newEvent.date || !newEvent.time) {
+  const handleSaveEvent = async () => {
+    if (!newEvent.title || !newEvent.event_date || !newEvent.event_time) {
       alert('Please fill in all required fields');
       return;
     }
 
-    const selectedCustomer = customers.find(c => c.id === newEvent.customerId);
-    const selectedSubcontractor = subcontractors.find(s => s.id === newEvent.subcontractorId);
-
-    const eventToAdd: CalendarEvent = {
-      id: `event-${Date.now()}`,
-      title: newEvent.title,
-      date: newEvent.date,
-      time: newEvent.time,
-      type: newEvent.type,
-      description: newEvent.description,
-      customer: selectedCustomer?.name,
-      customerId: newEvent.customerId,
-      subcontractor: selectedSubcontractor?.name,
-      subcontractorId: newEvent.subcontractorId
-    };
-
-    setEvents(prev => [...prev, eventToAdd]);
-    setShowEventModal(false);
-    
-    // Reset form
-    setNewEvent({
-      title: '',
-      date: '',
-      time: '',
-      type: 'meeting',
-      description: '',
-      customerId: '',
-      subcontractorId: ''
-    });
+    try {
+      const { error } = await supabase
+        .from('calendar_events')
+        .insert([{
+          user_id: user!.id,
+          title: newEvent.title,
+          event_date: newEvent.event_date,
+          event_time: newEvent.event_time,
+          event_type: newEvent.event_type,
+          description: newEvent.description || null,
+          customer_id: newEvent.customer_id || null,
+          subcontractor_id: newEvent.subcontractor_id || null
+        }]);
+      
+      if (error) throw error;
+      
+      // Refresh events
+      await fetchEvents();
+      setShowEventModal(false);
+      
+      // Reset form
+      setNewEvent({
+        title: '',
+        event_date: '',
+        event_time: '',
+        event_type: 'meeting',
+        description: '',
+        customer_id: '',
+        subcontractor_id: ''
+      });
+    } catch (error) {
+      console.error('Error creating event:', error);
+      alert('Failed to create event. Please try again.');
+    }
   };
 
-  const getEventTypeColor = (type: CalendarEvent['type']) => {
-    switch (type) {
+  const getEventTypeColor = (event_type: CalendarEvent['event_type']) => {
+    switch (event_type) {
       case 'estimate': return 'bg-blue-500';
       case 'work_order': return 'bg-green-500';
       case 'meeting': return 'bg-purple-500';
@@ -221,8 +204,8 @@ export const Calendar: React.FC = () => {
     }
   };
 
-  const getEventTypeIcon = (type: CalendarEvent['type']) => {
-    switch (type) {
+  const getEventTypeIcon = (event_type: CalendarEvent['event_type']) => {
+    switch (event_type) {
       case 'estimate': return '📄';
       case 'work_order': return '🔨';
       case 'meeting': return '👥';
@@ -267,10 +250,10 @@ export const Calendar: React.FC = () => {
             {dayEvents.slice(0, 3).map((event, index) => (
               <div
                 key={event.id}
-                className={`text-xs px-2 py-1 rounded text-white truncate ${getEventTypeColor(event.type)}`}
-                title={`${event.time} - ${event.title}`}
+                className={`text-xs px-2 py-1 rounded text-white truncate ${getEventTypeColor(event.event_type)}`}
+                title={`${event.event_time} - ${event.title}`}
               >
-                <span className="mr-1">{getEventTypeIcon(event.type)}</span>
+                <span className="mr-1">{getEventTypeIcon(event.event_type)}</span>
                 {event.title}
               </div>
             ))}
@@ -407,18 +390,23 @@ export const Calendar: React.FC = () => {
             {selectedEvent ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-2xl">{getEventTypeIcon(selectedEvent.type)}</span>
+                  <span className="text-2xl">{getEventTypeIcon(selectedEvent.event_type)}</span>
                   <h4 className="font-medium text-slate-900">{selectedEvent.title}</h4>
                 </div>
                 <p className="text-slate-600">
-                  <strong>Date:</strong> {new Date(selectedEvent.date).toLocaleDateString()}
+                  <strong>Date:</strong> {new Date(selectedEvent.event_date).toLocaleDateString()}
                 </p>
                 <p className="text-slate-600">
-                  <strong>Time:</strong> {selectedEvent.time}
+                  <strong>Time:</strong> {selectedEvent.event_time}
                 </p>
-                {selectedEvent.customer && (
+                {selectedEvent.customer?.name && (
                   <p className="text-slate-600">
-                    <strong>Customer:</strong> {selectedEvent.customer}
+                    <strong>Customer:</strong> {selectedEvent.customer.name}
+                  </p>
+                )}
+                {selectedEvent.subcontractor?.name && (
+                  <p className="text-slate-600">
+                    <strong>Subcontractor:</strong> {selectedEvent.subcontractor.name} ({selectedEvent.subcontractor.company_name})
                   </p>
                 )}
                 {selectedEvent.description && (
@@ -449,8 +437,8 @@ export const Calendar: React.FC = () => {
                     </label>
                     <input
                       type="date"
-                      value={newEvent.date}
-                      onChange={(e) => setNewEvent(prev => ({ ...prev, date: e.target.value }))}
+                      value={newEvent.event_date}
+                      onChange={(e) => setNewEvent(prev => ({ ...prev, event_date: e.target.value }))}
                       className="w-full border border-slate-300 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
                     />
                   </div>
@@ -460,8 +448,8 @@ export const Calendar: React.FC = () => {
                     </label>
                     <input
                       type="time"
-                      value={newEvent.time}
-                      onChange={(e) => setNewEvent(prev => ({ ...prev, time: e.target.value }))}
+                      value={newEvent.event_time}
+                      onChange={(e) => setNewEvent(prev => ({ ...prev, event_time: e.target.value }))}
                       className="w-full border border-slate-300 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
                     />
                   </div>
@@ -470,8 +458,8 @@ export const Calendar: React.FC = () => {
                     Event Type *
                   </label>
                   <select
-                    value={newEvent.type}
-                    onChange={(e) => setNewEvent(prev => ({ ...prev, type: e.target.value as CalendarEvent['type'] }))}
+                    value={newEvent.event_type}
+                    onChange={(e) => setNewEvent(prev => ({ ...prev, event_type: e.target.value as CalendarEvent['event_type'] }))}
                     className="w-full border border-slate-300 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
                   >
                     <option value="meeting">👥 Meeting</option>
@@ -487,8 +475,8 @@ export const Calendar: React.FC = () => {
                     Customer
                   </label>
                   <select
-                    value={newEvent.customerId}
-                    onChange={(e) => setNewEvent(prev => ({ ...prev, customerId: e.target.value }))}
+                    value={newEvent.customer_id}
+                    onChange={(e) => setNewEvent(prev => ({ ...prev, customer_id: e.target.value }))}
                     className="w-full border border-slate-300 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
                   >
                     <option value="">Select a customer...</option>
@@ -505,8 +493,8 @@ export const Calendar: React.FC = () => {
                     Subcontractor
                   </label>
                   <select
-                    value={newEvent.subcontractorId}
-                    onChange={(e) => setNewEvent(prev => ({ ...prev, subcontractorId: e.target.value }))}
+                    value={newEvent.subcontractor_id}
+                    onChange={(e) => setNewEvent(prev => ({ ...prev, subcontractor_id: e.target.value }))}
                     className="w-full border border-slate-300 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
                   >
                     <option value="">Select a subcontractor...</option>
@@ -540,15 +528,15 @@ export const Calendar: React.FC = () => {
                 }}
                 className="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50"
               >
-                Close
+            <div className={`w-3 h-3 rounded-full ${getEventTypeColor(event.event_type)}`}></div>
               </button>
               {!selectedEvent && (
-                <button 
+                <span className="text-lg">{getEventTypeIcon(event.event_type)}</span>
                   onClick={handleSaveEvent}
                   className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
                 >
-                  Create Event
-                </button>
+                {new Date(event.event_date).toLocaleDateString()} at {event.event_time}
+                {event.customer?.name && ` • ${event.customer.name}`}
               )}
             </div>
           </div>

@@ -104,3 +104,20 @@ export interface BudgetVersion {
   notes?: string;
   created_at: string;
 }
+
+export interface CalendarEvent {
+  id: string;
+  user_id: string;
+  customer_id?: string;
+  subcontractor_id?: string;
+  title: string;
+  description?: string;
+  event_date: string;
+  event_time: string;
+  event_type: 'estimate' | 'work_order' | 'meeting' | 'inspection';
+  status: 'scheduled' | 'completed' | 'cancelled' | 'rescheduled';
+  created_at: string;
+  updated_at: string;
+  customer?: Customer;
+  subcontractor?: Subcontractor;
+}
