@@ -19,6 +19,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) =
     { id: 'calendar', label: 'Calendar', icon: '📅' },
     { id: 'customers', label: 'Customers', icon: '👥' },
     { id: 'subcontractors', label: 'Subcontractors', icon: '🔨' },
+    { id: 'users', label: 'Team Management', icon: '👤' },
     { id: 'estimates', label: 'Estimates', icon: '📄' },
     { id: 'work-orders', label: 'Work Orders', icon: '📋' },
   ];

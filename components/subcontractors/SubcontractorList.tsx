@@ -24,19 +24,22 @@ export const SubcontractorList: React.FC = () => {
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const { user } = useAuth();
+  const { user, currentCompany } = useAuth();
 
   useEffect(() => {
-    if (user) {
+    if (user && currentCompany) {
       fetchSubcontractors();
     }
-  }, [user]);
+  }, [user, currentCompany]);
 
   const fetchSubcontractors = async () => {
+    if (!currentCompany) return;
+    
     try {
       const { data, error } = await supabase
         .from('subcontractors')
         .select('*')
+        .eq('company_id', currentCompany.id)
         .order('name');
       
       if (error) throw error;
@@ -49,10 +52,12 @@ export const SubcontractorList: React.FC = () => {
   };
 
   const handleAddSubcontractor = async (subcontractorData: Partial<Subcontractor>) => {
+    if (!currentCompany) return;
+    
     try {
       const { error } = await supabase
         .from('subcontractors')
-        .insert([{ ...subcontractorData, user_id: user!.id }]);
+        .insert([{ ...subcontractorData, company_id: currentCompany.id }]);
       
       if (error) throw error;
       fetchSubcontractors();

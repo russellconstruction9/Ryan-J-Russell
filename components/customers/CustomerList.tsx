@@ -8,19 +8,22 @@ export const CustomerList: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const { user } = useAuth();
+  const { user, currentCompany } = useAuth();
 
   useEffect(() => {
-    if (user) {
+    if (user && currentCompany) {
       fetchCustomers();
     }
-  }, [user]);
+  }, [user, currentCompany]);
 
   const fetchCustomers = async () => {
+    if (!currentCompany) return;
+    
     try {
       const { data, error } = await supabase
         .from('customers')
         .select('*')
+        .eq('company_id', currentCompany.id)
         .order('name');
       
       if (error) throw error;
@@ -33,10 +36,12 @@ export const CustomerList: React.FC = () => {
   };
 
   const handleAddCustomer = async (customerData: Partial<Customer>) => {
+    if (!currentCompany) return;
+    
     try {
       const { error } = await supabase
         .from('customers')
-        .insert([{ ...customerData, user_id: user!.id }]);
+        .insert([{ ...customerData, company_id: currentCompany.id }]);
       
       if (error) throw error;
       fetchCustomers();

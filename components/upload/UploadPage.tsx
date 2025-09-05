@@ -13,7 +13,7 @@ import type { ReconcileResult, BudgetData, ReconcileInput, CategoryScaled } from
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 export const UploadPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, currentCompany } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +36,7 @@ export const UploadPage: React.FC = () => {
       let savedCustomerId: string | null = null;
       
       // Extract customer information from PDF
-      if (user) {
+      if (user && currentCompany) {
         try {
           const customerData = await extractCustomerFromPdf(base64, mimeType, selectedFile.name);
           if (customerData && customerData.name) {
@@ -44,7 +44,7 @@ export const UploadPage: React.FC = () => {
             const { data: existingCustomer } = await supabase
               .from('customers')
               .select('id')
-              .eq('user_id', user.id)
+              .eq('company_id', currentCompany.id)
               .eq('name', customerData.name)
               .maybeSingle();
 
@@ -53,7 +53,7 @@ export const UploadPage: React.FC = () => {
               const { data: newCustomer, error: customerError } = await supabase
                 .from('customers')
                 .insert([{
-                  user_id: user.id,
+                  company_id: currentCompany.id,
                   name: customerData.name,
                   email: customerData.email,
                   phone: customerData.phone,
@@ -98,12 +98,13 @@ export const UploadPage: React.FC = () => {
       }
 
       // Save the initial budget to database if we have a customer
-      if (user && savedCustomerId && newBudgetData.json.definitive.totalProjectBudget) {
+      if (user && currentCompany && savedCustomerId && newBudgetData.json.definitive.totalProjectBudget) {
         try {
           const { data: savedEstimate, error: estimateError } = await supabase
             .from('insurance_estimates')
             .insert([{
               user_id: user.id,
+              company_id: currentCompany.id,
               customer_id: savedCustomerId,
               file_name: selectedFile.name,
               definitive_total: newBudgetData.json.definitive.totalProjectBudget,
@@ -165,7 +166,7 @@ export const UploadPage: React.FC = () => {
         setHasUnsavedChanges(true);
         
         // Save updated categories to database
-        if (user && budgetData.json.categories[0] && (budgetData.json.categories[0] as any).estimateId) {
+        if (user && currentCompany && budgetData.json.categories[0] && (budgetData.json.categories[0] as any).estimateId) {
           const estimateId = (budgetData.json.categories[0] as any).estimateId;
           supabase
             .from('insurance_estimates')
@@ -226,7 +227,7 @@ export const UploadPage: React.FC = () => {
         });
         
         // Save updated budget to database
-        if (user && budgetData.json.categories[0] && (budgetData.json.categories[0] as any).estimateId) {
+        if (user && currentCompany && budgetData.json.categories[0] && (budgetData.json.categories[0] as any).estimateId) {
           const estimateId = (budgetData.json.categories[0] as any).estimateId;
           supabase
             .from('insurance_estimates')

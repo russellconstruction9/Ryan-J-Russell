@@ -8,6 +8,7 @@ import { UploadPage } from './components/upload/UploadPage';
 import { CustomerList } from './components/customers/CustomerList';
 import { SubcontractorList } from './components/subcontractors/SubcontractorList';
 import { Calendar } from './components/calendar/Calendar';
+import { UserManagement } from './components/users/UserManagement';
 
 const App: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
@@ -56,6 +57,8 @@ const App: React.FC = () => {
         return <CustomerList />;
       case 'subcontractors':
         return <SubcontractorList />;
+      case 'users':
+        return <UserManagement />;
       case 'estimates':
         return <div className="text-center p-8">Estimates page coming soon...</div>;
       case 'work-orders':
