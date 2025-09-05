@@ -3,6 +3,9 @@ import { supabase, type Customer, type InsuranceEstimate, type WorkOrder } from 
 import { useAuth } from '../../hooks/useAuth';
 import { ArrowLeftIcon } from '../icons/ArrowLeftIcon';
 import { FileTextIcon } from '../icons/FileTextIcon';
+import { BudgetDisplay } from '../BudgetDisplay';
+import { reconcileBudget } from '../../utils/reconcile';
+import type { BudgetData, ReconcileResult, CategoryScaled, ReconcileInput } from '../../types';
 
 interface CustomerDetailProps {
   customer: Customer;
@@ -25,7 +28,11 @@ export const CustomerDetail: React.FC<CustomerDetailProps> = ({ customer, onBack
   const [estimates, setEstimates] = useState<InsuranceEstimate[]>([]);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'info' | 'estimates' | 'workorders' | 'budgets'>('info');
   const [selectedEstimate, setSelectedEstimate] = useState<InsuranceEstimate | null>(null);
+  const [budgetData, setBudgetData] = useState<BudgetData | null>(null);
+  const [reconciledResult, setReconciledResult] = useState<ReconcileResult | null>(null);
+  const [selectedLineItem, setSelectedLineItem] = useState<CategoryScaled | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -76,6 +83,124 @@ export const CustomerDetail: React.FC<CustomerDetailProps> = ({ customer, onBack
     setSelectedEstimate(estimate);
   };
 
+  const handleViewBudget = (estimate: InsuranceEstimate) => {
+    if (!estimate.budget_data) return;
+    
+    try {
+      const budgetJson = estimate.budget_data;
+      const categoriesWithIds = budgetJson.categories.map((c: any, i: number) => ({
+        ...c,
+        id: c.id || `cat-${Date.now()}-${i}`,
+        estimateId: estimate.id,
+        customerId: customer.id
+      }));
+      
+      const newBudgetData: BudgetData = {
+        json: { ...budgetJson, categories: categoriesWithIds },
+        markdown: '' // We don't store markdown, just JSON
+      };
+      
+      setBudgetData(newBudgetData);
+      
+      // Reconcile the budget
+      if (newBudgetData.json.definitive.totalProjectBudget) {
+        const reconcileInput: ReconcileInput = {
+          definitiveTotal: newBudgetData.json.definitive.totalProjectBudget,
+          oAndPPercent: newBudgetData.json.definitive.oAndPPercent,
+          taxRate: newBudgetData.json.definitive.taxRate,
+          categoriesPre: categoriesWithIds,
+        };
+        
+        const result = reconcileBudget(reconcileInput);
+        setReconciledResult(result);
+      }
+      
+      setActiveTab('budgets');
+    } catch (error) {
+      console.error('Error loading budget:', error);
+    }
+  };
+
+  const handleCategoriesChange = (updatedCategories: CategoryScaled[]) => {
+    if (!budgetData?.json.definitive.totalProjectBudget) return;
+
+    const reconcileInput: ReconcileInput = {
+      definitiveTotal: budgetData.json.definitive.totalProjectBudget,
+      oAndPPercent: budgetData.json.definitive.oAndPPercent,
+      taxRate: budgetData.json.definitive.taxRate,
+      categoriesPre: updatedCategories,
+    };
+    
+    try {
+      const result = reconcileBudget(reconcileInput);
+      setReconciledResult(result);
+      
+      // Save updated categories to database
+      if (budgetData.json.categories[0] && (budgetData.json.categories[0] as any).estimateId) {
+        const estimateId = (budgetData.json.categories[0] as any).estimateId;
+        supabase
+          .from('insurance_estimates')
+          .update({
+            budget_data: { ...budgetData.json, categories: updatedCategories },
+            reconciled_data: result,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', estimateId)
+          .then(({ error }) => {
+            if (error) console.log('Failed to update estimate:', error);
+          });
+      }
+    } catch (err) {
+      console.error('Reconciliation failed:', err);
+    }
+  };
+
+  const handleBudgetUpdate = (update: { oAndPPercent: number }) => {
+    if (!budgetData || !reconciledResult || budgetData.json.definitive.totalProjectBudget === null) return;
+    
+    const reconcileInput: ReconcileInput = {
+      definitiveTotal: budgetData.json.definitive.totalProjectBudget,
+      oAndPPercent: update.oAndPPercent,
+      taxRate: budgetData.json.definitive.taxRate,
+      categoriesPre: reconciledResult.categories,
+    };
+
+    try {
+      const result = reconcileBudget(reconcileInput);
+      setReconciledResult(result);
+
+      setBudgetData(prev => {
+        if (!prev) return null;
+        const newJson = { 
+          ...prev.json, 
+          definitive: {
+            ...prev.json.definitive,
+            oAndPPercent: update.oAndPPercent
+          }
+        };
+        return { ...prev, json: newJson };
+      });
+      
+      // Save updated budget to database
+      if (budgetData.json.categories[0] && (budgetData.json.categories[0] as any).estimateId) {
+        const estimateId = (budgetData.json.categories[0] as any).estimateId;
+        supabase
+          .from('insurance_estimates')
+          .update({
+            budget_data: { ...budgetData.json, definitive: { ...budgetData.json.definitive, oAndPPercent: update.oAndPPercent } },
+            reconciled_data: result,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', estimateId)
+          .then(({ error }) => {
+            if (error) console.log('Failed to update estimate:', error);
+          });
+      }
+    } catch (err) {
+      console.error("Reconciliation failed on budget update:", err);
+    }
+  };
+
   const handlePrintWorkOrder = (workOrder: WorkOrder) => {
     if (!workOrder.generated_content) return;
     
@@ -111,11 +236,14 @@ export const CustomerDetail: React.FC<CustomerDetailProps> = ({ customer, onBack
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <button
-            onClick={() => setSelectedEstimate(null)}
+            onClick={() => {
+              setSelectedEstimate(null);
+              setActiveTab('estimates');
+            }}
             className="flex items-center gap-2 text-slate-600 hover:text-slate-800"
           >
             <ArrowLeftIcon className="w-5 h-5" />
-            Back to Customer
+            Back to Estimates
           </button>
           <h2 className="text-2xl font-bold text-slate-900">Estimate Details</h2>
         </div>
@@ -188,6 +316,45 @@ export const CustomerDetail: React.FC<CustomerDetailProps> = ({ customer, onBack
     );
   }
 
+  // Show budget view if in budgets tab and budget data is loaded
+  if (activeTab === 'budgets' && budgetData && reconciledResult) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => {
+              setBudgetData(null);
+              setReconciledResult(null);
+              setSelectedLineItem(null);
+              setActiveTab('info');
+            }}
+            className="flex items-center gap-2 text-slate-600 hover:text-slate-800"
+          >
+            <ArrowLeftIcon className="w-5 h-5" />
+            Back to Customer
+          </button>
+          <h2 className="text-2xl font-bold text-slate-900">Budget Editor</h2>
+        </div>
+        
+        <BudgetDisplay 
+          budgetData={budgetData}
+          reconciledResult={reconciledResult}
+          onCategoriesChange={handleCategoriesChange}
+          onBudgetUpdate={handleBudgetUpdate}
+          onReset={() => {
+            setBudgetData(null);
+            setReconciledResult(null);
+            setSelectedLineItem(null);
+            setActiveTab('info');
+          }}
+          fileName="Customer Budget"
+          selectedLineItem={selectedLineItem}
+          onSelectLineItem={setSelectedLineItem}
+        />
+      </div>
+    );
+  }
+
   if (loading) {
     return <div className="flex justify-center p-8">Loading customer data...</div>;
   }
@@ -205,132 +372,240 @@ export const CustomerDetail: React.FC<CustomerDetailProps> = ({ customer, onBack
         <h2 className="text-2xl font-bold text-slate-900">Customer Details</h2>
       </div>
 
-      {/* Customer Information */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Contact Information</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-3">
-            <div>
-              <span className="text-sm font-medium text-slate-600">Name:</span>
-              <p className="text-slate-900">{customer.name}</p>
-            </div>
-            <div>
-              <span className="text-sm font-medium text-slate-600">Email:</span>
-              <p className="text-slate-900">{customer.email || 'Not provided'}</p>
-            </div>
-            <div>
-              <span className="text-sm font-medium text-slate-600">Phone:</span>
-              <p className="text-slate-900">{customer.phone || 'Not provided'}</p>
+      {/* Tab Navigation */}
+      <div className="border-b border-slate-200">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab('info')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'info'
+                ? 'border-indigo-500 text-indigo-600'
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+            }`}
+          >
+            Customer Info
+          </button>
+          <button
+            onClick={() => setActiveTab('estimates')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'estimates'
+                ? 'border-indigo-500 text-indigo-600'
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+            }`}
+          >
+            Estimates ({estimates.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('workorders')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'workorders'
+                ? 'border-indigo-500 text-indigo-600'
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+            }`}
+          >
+            Work Orders ({workOrders.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('budgets')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'budgets'
+                ? 'border-indigo-500 text-indigo-600'
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+            }`}
+          >
+            Budgets
+          </button>
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      <div className="mt-6">
+        {activeTab === 'info' && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Contact Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <div>
+                  <span className="text-sm font-medium text-slate-600">Name:</span>
+                  <p className="text-slate-900">{customer.name}</p>
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-slate-600">Email:</span>
+                  <p className="text-slate-900">{customer.email || 'Not provided'}</p>
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-slate-600">Phone:</span>
+                  <p className="text-slate-900">{customer.phone || 'Not provided'}</p>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <span className="text-sm font-medium text-slate-600">Address:</span>
+                  <p className="text-slate-900">
+                    {customer.address && (
+                      <>
+                        {customer.address}<br />
+                        {customer.city}, {customer.state} {customer.zip_code}
+                      </>
+                    )}
+                    {!customer.address && 'Not provided'}
+                  </p>
+                </div>
+                {customer.notes && (
+                  <div>
+                    <span className="text-sm font-medium text-slate-600">Notes:</span>
+                    <p className="text-slate-900">{customer.notes}</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-          <div className="space-y-3">
-            <div>
-              <span className="text-sm font-medium text-slate-600">Address:</span>
-              <p className="text-slate-900">
-                {customer.address && (
-                  <>
-                    {customer.address}<br />
-                    {customer.city}, {customer.state} {customer.zip_code}
-                  </>
-                )}
-                {!customer.address && 'Not provided'}
-              </p>
-            </div>
-            {customer.notes && (
-              <div>
-                <span className="text-sm font-medium text-slate-600">Notes:</span>
-                <p className="text-slate-900">{customer.notes}</p>
+        )}
+
+        {activeTab === 'estimates' && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Insurance Estimates</h3>
+            {estimates.length === 0 ? (
+              <p className="text-slate-500">No estimates found for this customer.</p>
+            ) : (
+              <div className="space-y-3">
+                {estimates.map((estimate) => (
+                  <div
+                    key={estimate.id}
+                    className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <FileTextIcon className="w-5 h-5 text-slate-400" />
+                        <div>
+                          <h4 className="font-medium text-slate-900">{estimate.file_name}</h4>
+                          <p className="text-sm text-slate-500">
+                            Created: {formatDate(estimate.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="flex gap-2 mb-2">
+                          <button
+                            onClick={() => handleViewEstimate(estimate)}
+                            className="text-sm text-indigo-600 hover:text-indigo-800"
+                          >
+                            View Details
+                          </button>
+                          {estimate.budget_data && (
+                            <button
+                              onClick={() => handleViewBudget(estimate)}
+                              className="text-sm text-green-600 hover:text-green-800"
+                            >
+                              Edit Budget
+                            </button>
+                          )}
+                        </div>
+                        <span className="text-sm font-medium text-slate-600 capitalize">
+                          {estimate.status}
+                        </span>
+                        {estimate.definitive_total && (
+                          <p className="text-lg font-semibold text-indigo-600">
+                            {formatCurrency(estimate.definitive_total)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
-        </div>
-      </div>
+        )}
 
-      {/* Insurance Estimates */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Insurance Estimates</h3>
-        {estimates.length === 0 ? (
-          <p className="text-slate-500">No estimates found for this customer.</p>
-        ) : (
-          <div className="space-y-3">
-            {estimates.map((estimate) => (
-              <div
-                key={estimate.id}
-                className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 cursor-pointer"
-                onClick={() => handleViewEstimate(estimate)}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <FileTextIcon className="w-5 h-5 text-slate-400" />
-                    <div>
-                      <h4 className="font-medium text-slate-900">{estimate.file_name}</h4>
-                      <p className="text-sm text-slate-500">
-                        Created: {formatDate(estimate.created_at)}
-                      </p>
+        {activeTab === 'workorders' && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Work Orders</h3>
+            {workOrders.length === 0 ? (
+              <p className="text-slate-500">No work orders found for this customer.</p>
+            ) : (
+              <div className="space-y-3">
+                {workOrders.map((workOrder) => (
+                  <div
+                    key={workOrder.id}
+                    className="border border-slate-200 rounded-lg p-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium text-slate-900">
+                          {workOrder.work_order_number} - {workOrder.category}
+                        </h4>
+                        <p className="text-sm text-slate-500">
+                          {workOrder.subcontractor?.name} ({workOrder.subcontractor?.company_name})
+                        </p>
+                        <p className="text-sm text-slate-500">
+                          Created: {formatDate(workOrder.created_at)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-semibold text-indigo-600">
+                          {formatCurrency(workOrder.total_amount)}
+                        </p>
+                        <button
+                          onClick={() => handlePrintWorkOrder(workOrder)}
+                          className="mt-2 text-sm text-indigo-600 hover:text-indigo-800"
+                        >
+                          Print Work Order
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-sm font-medium text-slate-600 capitalize">
-                      {estimate.status}
-                    </span>
-                    {estimate.definitive_total && (
-                      <p className="text-lg font-semibold text-indigo-600">
-                        {formatCurrency(estimate.definitive_total)}
-                      </p>
+                    {workOrder.scope_of_work && (
+                      <div className="mt-3 pt-3 border-t border-slate-100">
+                        <p className="text-sm text-slate-600">
+                          <strong>Scope:</strong> {workOrder.scope_of_work}
+                        </p>
+                      </div>
                     )}
                   </div>
-                </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         )}
-      </div>
 
-      {/* Work Orders */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-slate-900 mb-4">Work Orders</h3>
-        {workOrders.length === 0 ? (
-          <p className="text-slate-500">No work orders found for this customer.</p>
-        ) : (
-          <div className="space-y-3">
-            {workOrders.map((workOrder) => (
-              <div
-                key={workOrder.id}
-                className="border border-slate-200 rounded-lg p-4"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium text-slate-900">
-                      {workOrder.work_order_number} - {workOrder.category}
-                    </h4>
-                    <p className="text-sm text-slate-500">
-                      {workOrder.subcontractor?.name} ({workOrder.subcontractor?.company_name})
-                    </p>
-                    <p className="text-sm text-slate-500">
-                      Created: {formatDate(workOrder.created_at)}
-                    </p>
+        {activeTab === 'budgets' && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold text-slate-900 mb-4">Available Budgets</h3>
+            {estimates.filter(e => e.budget_data).length === 0 ? (
+              <p className="text-slate-500">No budgets available for this customer.</p>
+            ) : (
+              <div className="space-y-3">
+                {estimates.filter(e => e.budget_data).map((estimate) => (
+                  <div
+                    key={estimate.id}
+                    className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 cursor-pointer"
+                    onClick={() => handleViewBudget(estimate)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <FileTextIcon className="w-5 h-5 text-slate-400" />
+                        <div>
+                          <h4 className="font-medium text-slate-900">{estimate.file_name}</h4>
+                          <p className="text-sm text-slate-500">
+                            Budget created: {formatDate(estimate.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-sm text-green-600 font-medium">
+                          Click to Edit Budget
+                        </span>
+                        {estimate.definitive_total && (
+                          <p className="text-lg font-semibold text-indigo-600">
+                            {formatCurrency(estimate.definitive_total)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg font-semibold text-indigo-600">
-                      {formatCurrency(workOrder.total_amount)}
-                    </p>
-                    <button
-                      onClick={() => handlePrintWorkOrder(workOrder)}
-                      className="mt-2 text-sm text-indigo-600 hover:text-indigo-800"
-                    >
-                      Print Work Order
-                    </button>
-                  </div>
-                </div>
-                {workOrder.scope_of_work && (
-                  <div className="mt-3 pt-3 border-t border-slate-100">
-                    <p className="text-sm text-slate-600">
-                      <strong>Scope:</strong> {workOrder.scope_of_work}
-                    </p>
-                  </div>
-                )}
+                ))}
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>
