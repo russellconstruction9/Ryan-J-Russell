@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, type Customer } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
+import { CustomerDetail } from './CustomerDetail';
 
 export const CustomerList: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -44,6 +46,15 @@ export const CustomerList: React.FC = () => {
     }
   };
 
+  if (selectedCustomer) {
+    return (
+      <CustomerDetail 
+        customer={selectedCustomer} 
+        onBack={() => setSelectedCustomer(null)} 
+      />
+    );
+  }
+
   if (loading) {
     return <div className="flex justify-center p-8">Loading customers...</div>;
   }
@@ -70,7 +81,7 @@ export const CustomerList: React.FC = () => {
       <div className="bg-white shadow overflow-hidden sm:rounded-md">
         <ul className="divide-y divide-slate-200">
           {customers.map((customer) => (
-            <li key={customer.id} className="px-6 py-4 hover:bg-slate-50">
+            <li key={customer.id} className="px-6 py-4 hover:bg-slate-50 cursor-pointer" onClick={() => setSelectedCustomer(customer)}>
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-medium text-slate-900">{customer.name}</h3>

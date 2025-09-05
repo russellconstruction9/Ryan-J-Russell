@@ -39,6 +39,8 @@ const App: React.FC = () => {
     try {
       const { base64, mimeType } = await fileToBase64(selectedFile);
       
+      let savedCustomerId: string | null = null;
+      
       // Extract customer information from PDF
       if (user) {
         try {
@@ -54,7 +56,7 @@ const App: React.FC = () => {
 
             if (!existingCustomer) {
               // Save new customer to database
-              await supabase
+              const { data: newCustomer, error: customerError } = await supabase
                 .from('customers')
                 .insert([{
                   user_id: user.id,
@@ -65,7 +67,15 @@ const App: React.FC = () => {
                   city: customerData.city,
                   state: customerData.state,
                   zip_code: customerData.zip_code
-                }]);
+                }])
+                .select()
+                .single();
+              
+              if (!customerError && newCustomer) {
+                savedCustomerId = newCustomer.id;
+              }
+            } else {
+              savedCustomerId = existingCustomer.id;
             }
           }
         } catch (customerError) {
@@ -91,6 +101,40 @@ const App: React.FC = () => {
 
       if (newBudgetData.json.definitive.totalProjectBudget === null) {
           throw new Error(newBudgetData.json.footnotes.join(' '));
+      }
+
+      // Save the initial budget to database if we have a customer
+      if (user && savedCustomerId && newBudgetData.json.definitive.totalProjectBudget) {
+        try {
+          const { data: savedEstimate, error: estimateError } = await supabase
+            .from('insurance_estimates')
+            .insert([{
+              user_id: user.id,
+              customer_id: savedCustomerId,
+              file_name: selectedFile.name,
+              definitive_total: newBudgetData.json.definitive.totalProjectBudget,
+              budget_data: newBudgetData.json,
+              reconciled_data: null, // Will be updated when reconciled
+              status: 'processed'
+            }])
+            .select()
+            .single();
+          
+          if (!estimateError && savedEstimate) {
+            // Add estimate ID to categories for work order creation
+            const categoriesWithEstimate = newBudgetData.json.categories.map(c => ({
+              ...c,
+              estimateId: savedEstimate.id,
+              customerId: savedCustomerId
+            }));
+            setBudgetData(prev => prev ? {
+              ...prev,
+              json: { ...prev.json, categories: categoriesWithEstimate }
+            } : null);
+          }
+        } catch (estimateError) {
+          console.log('Failed to save estimate, continuing:', estimateError);
+        }
       }
 
       const reconcileInput: ReconcileInput = {
@@ -123,6 +167,22 @@ const App: React.FC = () => {
       try {
         const result = reconcileBudget(reconcileInput);
         setReconciledResult(result);
+        
+        // Save updated categories to database
+        if (user && budgetData.json.categories[0] && (budgetData.json.categories[0] as any).estimateId) {
+          const estimateId = (budgetData.json.categories[0] as any).estimateId;
+          supabase
+            .from('insurance_estimates')
+            .update({
+              budget_data: { ...budgetData.json, categories: updatedCategories },
+              reconciled_data: result,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', estimateId)
+            .then(({ error }) => {
+              if (error) console.log('Failed to update estimate:', error);
+            });
+        }
       } catch (err) {
         // Handle cases where reconciliation isn't possible (e.g., all items deleted)
         const definitiveTotal = budgetData.json.definitive.totalProjectBudget ?? 0;
@@ -168,6 +228,22 @@ const App: React.FC = () => {
             };
             return { ...prev, json: newJson };
         });
+        
+        // Save updated budget to database
+        if (user && budgetData.json.categories[0] && (budgetData.json.categories[0] as any).estimateId) {
+          const estimateId = (budgetData.json.categories[0] as any).estimateId;
+          supabase
+            .from('insurance_estimates')
+            .update({
+              budget_data: { ...budgetData.json, definitive: { ...budgetData.json.definitive, oAndPPercent: update.oAndPPercent } },
+              reconciled_data: result,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', estimateId)
+            .then(({ error }) => {
+              if (error) console.log('Failed to update estimate:', error);
+            });
+        }
       } catch (err) {
         console.error("Reconciliation failed on budget update:", err);
       }

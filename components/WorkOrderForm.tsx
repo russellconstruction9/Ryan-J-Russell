@@ -88,7 +88,7 @@ export const WorkOrderForm: React.FC<WorkOrderFormProps> = ({ lineItem, onBack }
   };
 
   const handleSaveWorkOrder = async () => {
-    if (!generatedWorkOrder || !user) return;
+    if (!generatedWorkOrder || !user || !lineItem) return;
 
     setIsSaving(true);
     setError(null);
@@ -99,25 +99,29 @@ export const WorkOrderForm: React.FC<WorkOrderFormProps> = ({ lineItem, onBack }
         `${s.name} (${s.company_name})` === formData.subcontractor
       );
 
-      // For now, we'll create a placeholder estimate_id since we don't have the current estimate saved
-      // In a full implementation, you'd pass the current estimate ID to this component
-      const { data: estimateData, error: estimateError } = await supabase
-        .from('insurance_estimates')
-        .insert([{
-          user_id: user.id,
-          file_name: 'Current Estimate', // You could pass the actual filename
-          status: 'processed'
-        }])
-        .select()
-        .single();
+      // Get the current estimate ID from props or create one
+      let estimateId = (lineItem as any).estimateId;
+      
+      if (!estimateId) {
+        // Create a new estimate record if one doesn't exist
+        const { data: estimateData, error: estimateError } = await supabase
+          .from('insurance_estimates')
+          .insert([{
+            user_id: user.id,
+            file_name: 'Current Estimate',
+            status: 'processed'
+          }])
+          .select()
+          .single();
 
-      if (estimateError) throw estimateError;
-
+        if (estimateError) throw estimateError;
+        estimateId = estimateData.id;
+      }
       const { error: workOrderError } = await supabase
         .from('work_orders')
         .insert([{
           user_id: user.id,
-          estimate_id: estimateData.id,
+          estimate_id: estimateId,
           subcontractor_id: selectedSubcontractor?.id || null,
           work_order_number: generatedWorkOrder.workOrderNumber,
           category: formData.category,
