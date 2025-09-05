@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { AuthForm } from './components/auth/AuthForm';
@@ -7,6 +8,7 @@ import { UploadPage } from './components/upload/UploadPage';
 import { CustomerList } from './components/customers/CustomerList';
 import { SubcontractorList } from './components/subcontractors/SubcontractorList';
 import { Calendar } from './components/calendar/Calendar';
+import { UserManagement } from './components/users/UserManagement';
 import { UserManagement } from './components/users/UserManagement';
 
 const App: React.FC = () => {
@@ -46,10 +48,10 @@ const App: React.FC = () => {
 
   const renderCurrentPage = () => {
     switch (currentPage) {
-      case 'dashboard':
-        return <Dashboard onPageChange={setCurrentPage} />;
-      case 'upload':
-        return <UploadPage />;
+     case 'dashboard':
+       return <Dashboard onPageChange={setCurrentPage} />;
+     case 'upload':
+       return <UploadPage />;
       case 'calendar':
         return <Calendar />;
       case 'customers':
@@ -63,7 +65,7 @@ const App: React.FC = () => {
       case 'work-orders':
         return <div className="text-center p-8">Work Orders page coming soon...</div>;
       default:
-        return <Dashboard onPageChange={setCurrentPage} />;
+       return <Dashboard />;
     }
   };
 
