@@ -528,15 +528,15 @@ export const Calendar: React.FC = () => {
                 }}
                 className="px-4 py-2 border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50"
               >
-            <div className={`w-3 h-3 rounded-full ${getEventTypeColor(event.event_type)}`}></div>
+                Cancel
               </button>
               {!selectedEvent && (
-                <span className="text-lg">{getEventTypeIcon(event.event_type)}</span>
+                <button
                   onClick={handleSaveEvent}
                   className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
                 >
-                {new Date(event.event_date).toLocaleDateString()} at {event.event_time}
-                {event.customer?.name && ` • ${event.customer.name}`}
+                  Save Event
+                </button>
               )}
             </div>
           </div>
