@@ -463,7 +463,9 @@ export const Calendar: React.FC = () => {
                       value={newEvent.time}
                       onChange={(e) => setNewEvent(prev => ({ ...prev, time: e.target.value }))}
                       className="w-full border border-slate-300 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
-                <div>
+                    />
+                  </div>
+                  <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
                     Event Type *
                   </label>
@@ -478,7 +480,8 @@ export const Calendar: React.FC = () => {
                     <option value="work_order">🔨 Work Order</option>
                   </select>
                 </div>
-                    />
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
                     Customer
@@ -496,7 +499,7 @@ export const Calendar: React.FC = () => {
                     ))}
                   </select>
                 </div>
-                  </div>
+
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
                     Subcontractor
@@ -513,7 +516,6 @@ export const Calendar: React.FC = () => {
                       </option>
                     ))}
                   </select>
-                </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
