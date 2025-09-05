@@ -2,10 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import type { CategoryScaled } from '../types';
 import { TrashIcon } from './icons/TrashIcon';
+import { FileTextIcon } from './icons/FileTextIcon';
 
 interface BudgetTableProps {
   categories: CategoryScaled[];
   onCategoriesChange: (categories: CategoryScaled[]) => void;
+  onCreateWorkOrder: (lineItem: CategoryScaled) => void;
 }
 
 const formatCurrency = (amount: number) => {
@@ -17,7 +19,7 @@ const formatCurrency = (amount: number) => {
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
-export const BudgetTable: React.FC<BudgetTableProps> = ({ categories, onCategoriesChange }) => {
+export const BudgetTable: React.FC<BudgetTableProps> = ({ categories, onCategoriesChange, onCreateWorkOrder }) => {
   const [localCategories, setLocalCategories] = useState<CategoryScaled[]>(categories);
 
   useEffect(() => {
@@ -82,7 +84,7 @@ export const BudgetTable: React.FC<BudgetTableProps> = ({ categories, onCategori
               <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Material</th>
               <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Labor</th>
               <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Total</th>
-              <th scope="col" className="relative px-6 py-3"><span className="sr-only">Delete</span></th>
+              <th scope="col" className="relative px-6 py-3"><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-slate-200">
@@ -102,9 +104,22 @@ export const BudgetTable: React.FC<BudgetTableProps> = ({ categories, onCategori
                 </td>
                 <td className="px-6 py-2 whitespace-nowrap text-sm font-semibold text-slate-900 text-right">{formatCurrency(item.totalScaled)}</td>
                 <td className="px-6 py-2 whitespace-nowrap text-right text-sm font-medium">
-                    <button onClick={() => handleDeleteItem(item.id)} className="text-slate-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <TrashIcon className="w-5 h-5" />
+                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={() => onCreateWorkOrder(item)}
+                      className="text-slate-400 hover:text-indigo-600"
+                      title="Create Work Order"
+                    >
+                      <FileTextIcon className="w-5 h-5" />
                     </button>
+                    <button 
+                      onClick={() => handleDeleteItem(item.id)} 
+                      className="text-slate-400 hover:text-red-600"
+                      title="Delete Item"
+                    >
+                      <TrashIcon className="w-5 h-5" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -112,9 +127,9 @@ export const BudgetTable: React.FC<BudgetTableProps> = ({ categories, onCategori
         </table>
       </div>
       <div className="p-4 bg-slate-50 border-t border-slate-200">
-          <button onClick={handleAddItem} className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
-              + Add Line Item
-          </button>
+        <button onClick={handleAddItem} className="text-sm font-medium text-indigo-600 hover:text-indigo-800">
+          + Add Line Item
+        </button>
       </div>
     </div>
   );

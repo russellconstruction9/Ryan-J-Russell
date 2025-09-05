@@ -17,6 +17,7 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [budgetData, setBudgetData] = useState<BudgetData | null>(null);
   const [reconciledResult, setReconciledResult] = useState<ReconcileResult | null>(null);
+  const [selectedLineItem, setSelectedLineItem] = useState<CategoryScaled | null>(null);
 
   const handleFileProcess = useCallback(async (selectedFile: File) => {
     setFile(selectedFile);
@@ -24,6 +25,7 @@ const App: React.FC = () => {
     setError(null);
     setBudgetData(null);
     setReconciledResult(null);
+    setSelectedLineItem(null);
 
     try {
       const { base64, mimeType } = await fileToBase64(selectedFile);
@@ -133,6 +135,7 @@ const App: React.FC = () => {
     setError(null);
     setBudgetData(null);
     setReconciledResult(null);
+    setSelectedLineItem(null);
   };
 
   return (
@@ -155,6 +158,8 @@ const App: React.FC = () => {
               onBudgetUpdate={handleBudgetUpdate}
               onReset={handleReset}
               fileName={file?.name || 'estimate.pdf'}
+              selectedLineItem={selectedLineItem}
+              onSelectLineItem={setSelectedLineItem}
             />
           ) : (
             <FileUpload onFileSelect={handleFileProcess} />

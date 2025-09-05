@@ -82,3 +82,21 @@ export interface BudgetData {
   json: BudgetJson;
   markdown: string;
 }
+
+export interface WorkOrderData {
+  lineItemId: string | number;
+  category: string;
+  materialAmount: number;
+  laborAmount: number;
+  totalAmount: number;
+  subcontractor: string;
+  scopeOfWork: string;
+  additionalDetails: string;
+  timeline: string;
+  specialRequirements: string;
+}
+
+export interface GeneratedWorkOrder {
+  workOrderNumber: string;
+  content: string;
+}
