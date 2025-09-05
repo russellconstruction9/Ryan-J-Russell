@@ -32,8 +32,8 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-slate-900">Insurance Budget Reconciler</h1>
-            <p className="text-slate-600 mt-2">Professional budget management for insurance claims</p>
+            <h1 className="text-3xl font-bold text-slate-900">Project ManageAI</h1>
+            <p className="text-slate-600 mt-2">AI-powered project management for construction and insurance claims</p>
           </div>
           <AuthForm 
             mode={authMode} 
