@@ -2,7 +2,6 @@
 import React from 'react';
 import { BudgetTable } from './BudgetTable';
 import { TotalsPanel } from './TotalsPanel';
-import { MarkdownPreview } from './MarkdownPreview';
 import type { BudgetData, ReconcileResult, CategoryScaled } from '../types';
 
 interface BudgetDisplayProps {
@@ -51,9 +50,6 @@ export const BudgetDisplay: React.FC<BudgetDisplayProps> = ({
             onBudgetUpdate={onBudgetUpdate}
           />
         </div>
-      </div>
-      <div>
-        <MarkdownPreview markdown={budgetData.markdown} />
       </div>
     </div>
   );
