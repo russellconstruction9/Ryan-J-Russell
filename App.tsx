@@ -9,6 +9,7 @@ import { CustomerList } from './components/customers/CustomerList';
 import { SubcontractorList } from './components/subcontractors/SubcontractorList';
 import { Calendar } from './components/calendar/Calendar';
 import { UserManagement } from './components/users/UserManagement';
+import { UserManagement } from './components/users/UserManagement';
 
 const App: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
