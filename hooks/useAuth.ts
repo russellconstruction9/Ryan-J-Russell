@@ -41,7 +41,7 @@ export const useAuth = () => {
         .from('company_users')
         .select(`
           *,
-          company:companies(*)
+          companies(*)
         `)
         .eq('user_id', userId)
         .eq('is_active', true);
@@ -52,12 +52,12 @@ export const useAuth = () => {
       
       // Set current company to the first one if none is set
       if (data && data.length > 0 && !currentCompany) {
-        setCurrentCompany(data[0].company);
+        setCurrentCompany(data[0].companies);
         
         // Update user's current_company_id in profile
         await supabase
           .from('profiles')
-          .update({ current_company_id: data[0].company.id })
+          .update({ current_company_id: data[0].companies.id })
           .eq('id', userId);
       }
     } catch (error) {

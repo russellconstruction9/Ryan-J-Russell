@@ -30,7 +30,7 @@ export const UserManagement: React.FC = () => {
         .from('company_users')
         .select(`
           *,
-          user:profiles!inner(email, full_name)
+          profiles!inner(email, full_name)
         `)
         .eq('company_id', currentCompany.id)
         .eq('is_active', true)
@@ -239,10 +239,10 @@ export const UserManagement: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
                       <div className="text-sm font-medium text-slate-900">
-                        {companyUser.user?.full_name || 'Unknown User'}
+                        {companyUser.profiles?.full_name || 'Unknown User'}
                       </div>
                       <div className="text-sm text-slate-500">
-                        {companyUser.user?.email}
+                        {companyUser.profiles?.email}
                       </div>
                     </div>
                   </td>
