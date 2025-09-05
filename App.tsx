@@ -50,7 +50,7 @@ const App: React.FC = () => {
               .select('id')
               .eq('user_id', user.id)
               .eq('name', customerData.name)
-              .single();
+              .maybeSingle();
 
             if (!existingCustomer) {
               // Save new customer to database
