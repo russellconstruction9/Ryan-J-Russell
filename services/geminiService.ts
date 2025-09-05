@@ -1,6 +1,30 @@
 
 import { GoogleGenAI } from "@google/genai";
 
+const CUSTOMER_EXTRACTION_INSTRUCTION = `
+You are a data extraction specialist. Extract customer information from the first page of this insurance estimate PDF.
+
+Look for and extract:
+- Customer/Property Owner name
+- Property address (street, city, state, zip)
+- Phone number
+- Email address (if available)
+- Any additional contact information
+
+Return ONLY a JSON object with this exact structure:
+{
+  "name": "Customer Name",
+  "address": "Street Address",
+  "city": "City",
+  "state": "State",
+  "zip_code": "ZIP Code",
+  "phone": "Phone Number",
+  "email": "Email Address"
+}
+
+If any field is not found, use null for that field. Do not include any other text or explanation.
+`;
+
 const SYSTEM_INSTRUCTION = `
 Role & Objective
 
@@ -177,4 +201,41 @@ export const generateBudgetFromPdf = async (
   });
 
   return response.text;
+};
+
+export const extractCustomerFromPdf = async (
+  base64Pdf: string,
+  mimeType: string,
+  fileName: string
+): Promise<any> => {
+  if (!process.env.API_KEY) {
+    throw new Error("API_KEY environment variable not set.");
+  }
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+  const pdfPart = {
+    inlineData: {
+      data: base64Pdf,
+      mimeType: mimeType,
+    },
+  };
+
+  const textPart = {
+    text: `Extract customer information from the first page of this PDF insurance estimate. The filename is: "${fileName}"`,
+  };
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: { parts: [pdfPart, textPart] },
+    config: {
+        systemInstruction: CUSTOMER_EXTRACTION_INSTRUCTION
+    }
+  });
+
+  try {
+    return JSON.parse(response.text);
+  } catch (error) {
+    console.error('Failed to parse customer data:', error);
+    return null;
+  }
 };

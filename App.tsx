@@ -9,9 +9,10 @@ import { FileUpload } from './components/FileUpload';
 import { BudgetDisplay } from './components/BudgetDisplay';
 import { Loader } from './components/Loader';
 import { ErrorMessage } from './components/ErrorMessage';
-import { generateBudgetFromPdf } from './services/geminiService';
+import { generateBudgetFromPdf, extractCustomerFromPdf } from './services/geminiService';
 import { reconcileBudget } from './utils/reconcile';
 import { fileToBase64 } from './utils/fileUtils';
+import { supabase } from './lib/supabase';
 import type { ReconcileResult, BudgetData, ReconcileInput, CategoryScaled } from './types';
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -37,6 +38,41 @@ const App: React.FC = () => {
 
     try {
       const { base64, mimeType } = await fileToBase64(selectedFile);
+      
+      // Extract customer information from PDF
+      if (user) {
+        try {
+          const customerData = await extractCustomerFromPdf(base64, mimeType, selectedFile.name);
+          if (customerData && customerData.name) {
+            // Check if customer already exists
+            const { data: existingCustomer } = await supabase
+              .from('customers')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('name', customerData.name)
+              .single();
+
+            if (!existingCustomer) {
+              // Save new customer to database
+              await supabase
+                .from('customers')
+                .insert([{
+                  user_id: user.id,
+                  name: customerData.name,
+                  email: customerData.email,
+                  phone: customerData.phone,
+                  address: customerData.address,
+                  city: customerData.city,
+                  state: customerData.state,
+                  zip_code: customerData.zip_code
+                }]);
+            }
+          }
+        } catch (customerError) {
+          console.log('Customer extraction failed, continuing with budget processing:', customerError);
+        }
+      }
+      
       const geminiResponse = await generateBudgetFromPdf(base64, mimeType, selectedFile.name);
 
       const jsonRegex = /```json\s*([\s\S]*?)\s*```/;
@@ -72,7 +108,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user]);
 
   const handleCategoriesChange = useCallback((updatedCategories: CategoryScaled[]) => {
       if (!budgetData?.json.definitive.totalProjectBudget) return;

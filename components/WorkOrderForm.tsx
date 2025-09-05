@@ -55,6 +55,8 @@ export const WorkOrderForm: React.FC<WorkOrderFormProps> = ({ lineItem, onBack }
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generatedWorkOrder, setGeneratedWorkOrder] = useState<GeneratedWorkOrder | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleInputChange = (field: keyof typeof formData, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -82,6 +84,62 @@ export const WorkOrderForm: React.FC<WorkOrderFormProps> = ({ lineItem, onBack }
       setError(errorMessage);
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleSaveWorkOrder = async () => {
+    if (!generatedWorkOrder || !user) return;
+
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      // Find the selected subcontractor
+      const selectedSubcontractor = subcontractors.find(s => 
+        `${s.name} (${s.company_name})` === formData.subcontractor
+      );
+
+      // For now, we'll create a placeholder estimate_id since we don't have the current estimate saved
+      // In a full implementation, you'd pass the current estimate ID to this component
+      const { data: estimateData, error: estimateError } = await supabase
+        .from('insurance_estimates')
+        .insert([{
+          user_id: user.id,
+          file_name: 'Current Estimate', // You could pass the actual filename
+          status: 'processed'
+        }])
+        .select()
+        .single();
+
+      if (estimateError) throw estimateError;
+
+      const { error: workOrderError } = await supabase
+        .from('work_orders')
+        .insert([{
+          user_id: user.id,
+          estimate_id: estimateData.id,
+          subcontractor_id: selectedSubcontractor?.id || null,
+          work_order_number: generatedWorkOrder.workOrderNumber,
+          category: formData.category,
+          scope_of_work: formData.scopeOfWork,
+          material_amount: formData.materialAmount,
+          labor_amount: formData.laborAmount,
+          total_amount: formData.totalAmount,
+          timeline: formData.timeline,
+          special_requirements: formData.specialRequirements,
+          status: 'generated',
+          generated_content: generatedWorkOrder.content
+        }]);
+
+      if (workOrderError) throw workOrderError;
+
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save work order';
+      setError(errorMessage);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -128,6 +186,13 @@ export const WorkOrderForm: React.FC<WorkOrderFormProps> = ({ lineItem, onBack }
           </button>
           <div className="flex gap-3">
             <button
+              onClick={handleSaveWorkOrder}
+              disabled={isSaving}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-slate-300 disabled:cursor-not-allowed"
+            >
+              {isSaving ? 'Saving...' : 'Save Work Order'}
+            </button>
+            <button
               onClick={handlePrintWorkOrder}
               className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
             >
@@ -143,6 +208,12 @@ export const WorkOrderForm: React.FC<WorkOrderFormProps> = ({ lineItem, onBack }
         </div>
 
         <div className="bg-white rounded-lg shadow-lg p-6">
+          {saveSuccess && (
+            <div className="mb-4 bg-green-50 border border-green-200 rounded-md p-4">
+              <p className="text-green-700">Work order saved successfully!</p>
+            </div>
+          )}
+          
           <div className="flex items-center justify-between mb-4 pb-4 border-b">
             <h2 className="text-2xl font-bold text-slate-900">Work Order Generated</h2>
             <span className="text-lg font-semibold text-indigo-600">{generatedWorkOrder.workOrderNumber}</span>
