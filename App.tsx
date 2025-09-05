@@ -56,7 +56,7 @@ const App: React.FC = () => {
         return <CustomerList />;
       case 'subcontractors':
         return <SubcontractorList />;
-      case 'team':
+      case 'users':
         return <UserManagement />;
       case 'estimates':
         return <div className="text-center p-8">Estimates page coming soon...</div>;
