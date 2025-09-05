@@ -33,6 +33,9 @@ export const CustomerDetail: React.FC<CustomerDetailProps> = ({ customer, onBack
   const [budgetData, setBudgetData] = useState<BudgetData | null>(null);
   const [reconciledResult, setReconciledResult] = useState<ReconcileResult | null>(null);
   const [selectedLineItem, setSelectedLineItem] = useState<CategoryScaled | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [budgetVersions, setBudgetVersions] = useState<any[]>([]);
+  const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -72,10 +75,33 @@ export const CustomerDetail: React.FC<CustomerDetailProps> = ({ customer, onBack
       ) || [];
       
       setWorkOrders(customerWorkOrders);
+      
+      // Fetch budget versions if we have estimates
+      if (estimatesData && estimatesData.length > 0) {
+        fetchBudgetVersions();
+      }
     } catch (error) {
       console.error('Error fetching customer data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchBudgetVersions = async () => {
+    try {
+      const estimateIds = estimates.map(e => e.id);
+      if (estimateIds.length === 0) return;
+
+      const { data, error } = await supabase
+        .from('budget_versions')
+        .select('*')
+        .in('estimate_id', estimateIds)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setBudgetVersions(data || []);
+    } catch (error) {
+      console.error('Error fetching budget versions:', error);
     }
   };
 
@@ -134,7 +160,9 @@ export const CustomerDetail: React.FC<CustomerDetailProps> = ({ customer, onBack
     try {
       const result = reconcileBudget(reconcileInput);
       setReconciledResult(result);
+      setHasUnsavedChanges(true);
       
+      setHasUnsavedChanges(false);
       // Save updated categories to database
       if (budgetData.json.categories[0] && (budgetData.json.categories[0] as any).estimateId) {
         const estimateId = (budgetData.json.categories[0] as any).estimateId;
@@ -170,6 +198,7 @@ export const CustomerDetail: React.FC<CustomerDetailProps> = ({ customer, onBack
       setReconciledResult(result);
 
       setBudgetData(prev => {
+        setHasUnsavedChanges(true);
         if (!prev) return null;
         const newJson = { 
           ...prev.json, 
@@ -198,6 +227,49 @@ export const CustomerDetail: React.FC<CustomerDetailProps> = ({ customer, onBack
       }
     } catch (err) {
       console.error("Reconciliation failed on budget update:", err);
+    }
+  };
+
+  const handleSaveBudgetVersion = async (notes?: string) => {
+    if (!budgetData || !reconciledResult || !user) return;
+
+    const estimateId = (budgetData.json.categories[0] as any)?.estimateId;
+    if (!estimateId) return;
+
+    try {
+      // Get the next version number
+      const { data: existingVersions, error: versionError } = await supabase
+        .from('budget_versions')
+        .select('version_number')
+        .eq('estimate_id', estimateId)
+        .order('version_number', { ascending: false })
+        .limit(1);
+
+      if (versionError) throw versionError;
+
+      const nextVersion = existingVersions && existingVersions.length > 0 
+        ? existingVersions[0].version_number + 1 
+        : 1;
+
+      // Save the new version
+      const { error: saveError } = await supabase
+        .from('budget_versions')
+        .insert([{
+          estimate_id: estimateId,
+          user_id: user.id,
+          version_number: nextVersion,
+          budget_data: budgetData.json,
+          reconciled_data: reconciledResult,
+          notes: notes || `Version ${nextVersion}`
+        }]);
+
+      if (saveError) throw saveError;
+
+      setHasUnsavedChanges(false);
+      fetchBudgetVersions(); // Refresh the versions list
+    } catch (error) {
+      console.error('Error saving budget version:', error);
+      throw error;
     }
   };
 
@@ -341,10 +413,13 @@ export const CustomerDetail: React.FC<CustomerDetailProps> = ({ customer, onBack
           reconciledResult={reconciledResult}
           onCategoriesChange={handleCategoriesChange}
           onBudgetUpdate={handleBudgetUpdate}
+          onSaveBudgetVersion={handleSaveBudgetVersion}
+          hasUnsavedChanges={hasUnsavedChanges}
           onReset={() => {
             setBudgetData(null);
             setReconciledResult(null);
             setSelectedLineItem(null);
+            setHasUnsavedChanges(false);
             setActiveTab('info');
           }}
           fileName="Customer Budget"
@@ -571,6 +646,52 @@ export const CustomerDetail: React.FC<CustomerDetailProps> = ({ customer, onBack
         {activeTab === 'budgets' && (
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-lg font-semibold text-slate-900 mb-4">Available Budgets</h3>
+            
+            {/* Budget Versions */}
+            {budgetVersions.length > 0 && (
+              <div className="mb-6">
+                <h4 className="text-md font-medium text-slate-700 mb-3">Saved Budget Versions</h4>
+                <div className="space-y-2">
+                  {budgetVersions.map((version) => (
+                    <div
+                      key={version.id}
+                      className="border border-slate-200 rounded-lg p-3 hover:bg-slate-50"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="font-medium text-slate-900">
+                            Version {version.version_number}
+                          </span>
+                          <p className="text-sm text-slate-500">
+                            {formatDate(version.created_at)}
+                          </p>
+                          {version.notes && (
+                            <p className="text-sm text-slate-600 mt-1">{version.notes}</p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => {
+                            // Load this version into the budget editor
+                            const versionBudgetData: BudgetData = {
+                              json: version.budget_data,
+                              markdown: ''
+                            };
+                            setBudgetData(versionBudgetData);
+                            setReconciledResult(version.reconciled_data);
+                            setHasUnsavedChanges(false);
+                            setSelectedVersion(version.version_number);
+                          }}
+                          className="text-sm text-indigo-600 hover:text-indigo-800"
+                        >
+                          Load Version
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             {estimates.filter(e => e.budget_data).length === 0 ? (
               <p className="text-slate-500">No budgets available for this customer.</p>
             ) : (

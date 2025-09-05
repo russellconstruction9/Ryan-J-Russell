@@ -93,3 +93,14 @@ export interface WorkOrder {
   subcontractor?: Subcontractor;
   estimate?: InsuranceEstimate;
 }
+
+export interface BudgetVersion {
+  id: string;
+  estimate_id: string;
+  user_id: string;
+  version_number: number;
+  budget_data?: any;
+  reconciled_data?: any;
+  notes?: string;
+  created_at: string;
+}

@@ -27,6 +27,7 @@ const App: React.FC = () => {
   const [budgetData, setBudgetData] = useState<BudgetData | null>(null);
   const [reconciledResult, setReconciledResult] = useState<ReconcileResult | null>(null);
   const [selectedLineItem, setSelectedLineItem] = useState<CategoryScaled | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const handleFileProcess = useCallback(async (selectedFile: File) => {
     setFile(selectedFile);
@@ -146,6 +147,7 @@ const App: React.FC = () => {
 
       const result = reconcileBudget(reconcileInput);
       setReconciledResult(result);
+      setHasUnsavedChanges(false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
       setError(`Failed to process the estimate. Reason: ${errorMessage}`);
@@ -167,6 +169,7 @@ const App: React.FC = () => {
       try {
         const result = reconcileBudget(reconcileInput);
         setReconciledResult(result);
+        setHasUnsavedChanges(true);
         
         // Save updated categories to database
         if (user && budgetData.json.categories[0] && (budgetData.json.categories[0] as any).estimateId) {
@@ -256,6 +259,7 @@ const App: React.FC = () => {
     setBudgetData(null);
     setReconciledResult(null);
     setSelectedLineItem(null);
+    setHasUnsavedChanges(false);
   };
 
   // Show loading while checking auth
@@ -315,6 +319,7 @@ const App: React.FC = () => {
                 reconciledResult={reconciledResult}
                 onCategoriesChange={handleCategoriesChange}
                 onBudgetUpdate={handleBudgetUpdate}
+                hasUnsavedChanges={hasUnsavedChanges}
                 onReset={handleReset}
                 fileName={file?.name || 'estimate.pdf'}
                 selectedLineItem={selectedLineItem}
