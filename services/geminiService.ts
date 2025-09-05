@@ -233,7 +233,13 @@ export const extractCustomerFromPdf = async (
   });
 
   try {
-    return JSON.parse(response.text);
+    const responseText = response.text;
+    
+    // Extract JSON from markdown code blocks if present
+    const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
+    const jsonString = jsonMatch ? jsonMatch[1] : responseText;
+    
+    return JSON.parse(jsonString.trim());
   } catch (error) {
     console.error('Failed to parse customer data:', error);
     return null;
