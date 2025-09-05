@@ -54,33 +54,7 @@ const App: React.FC = () => {
       case 'work-orders':
         return <div className="text-center p-8">Work Orders page coming soon...</div>;
       default:
-        return (
-          <div className="space-y-8">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-slate-900">Upload Insurance Estimate</h2>
-              <p className="text-slate-600 mt-2">Upload a PDF estimate to generate a scaled budget</p>
-            </div>
-            {isLoading ? (
-              <Loader />
-            ) : error ? (
-              <ErrorMessage message={error} onReset={handleReset} />
-            ) : reconciledResult && budgetData ? (
-              <BudgetDisplay 
-                budgetData={budgetData}
-                reconciledResult={reconciledResult}
-                onCategoriesChange={handleCategoriesChange}
-                onBudgetUpdate={handleBudgetUpdate}
-                hasUnsavedChanges={hasUnsavedChanges}
-                onReset={handleReset}
-                fileName={file?.name || 'estimate.pdf'}
-                selectedLineItem={selectedLineItem}
-                onSelectLineItem={setSelectedLineItem}
-              />
-            ) : (
-              <FileUpload onFileSelect={handleFileProcess} />
-            )}
-          </div>
-        );
+        return <UploadPage />;
     }
   };
 
