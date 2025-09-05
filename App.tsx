@@ -1,5 +1,10 @@
 
 import React, { useState, useCallback } from 'react';
+import { useAuth } from './hooks/useAuth';
+import { AuthForm } from './components/auth/AuthForm';
+import { Navigation } from './components/layout/Navigation';
+import { CustomerList } from './components/customers/CustomerList';
+import { SubcontractorList } from './components/subcontractors/SubcontractorList';
 import { FileUpload } from './components/FileUpload';
 import { BudgetDisplay } from './components/BudgetDisplay';
 import { Loader } from './components/Loader';
@@ -12,6 +17,9 @@ import type { ReconcileResult, BudgetData, ReconcileInput, CategoryScaled } from
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 const App: React.FC = () => {
+  const { user, loading: authLoading } = useAuth();
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  const [currentPage, setCurrentPage] = useState('dashboard');
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -138,37 +146,85 @@ const App: React.FC = () => {
     setSelectedLineItem(null);
   };
 
-  return (
-    <div className="min-h-screen bg-slate-100 text-slate-800 flex flex-col items-center p-4 sm:p-8 font-sans">
-      <div className="w-full max-w-7xl mx-auto">
-        <header className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-slate-900">Insurance Budget Reconciler</h1>
-          <p className="text-lg text-slate-600 mt-2">Upload an insurance estimate PDF to generate a scaled budget.</p>
-        </header>
-        <main className="bg-white rounded-xl shadow-lg p-6 sm:p-8">
-          {isLoading ? (
-            <Loader />
-          ) : error ? (
-            <ErrorMessage message={error} onReset={handleReset} />
-          ) : reconciledResult && budgetData ? (
-            <BudgetDisplay 
-              budgetData={budgetData}
-              reconciledResult={reconciledResult}
-              onCategoriesChange={handleCategoriesChange}
-              onBudgetUpdate={handleBudgetUpdate}
-              onReset={handleReset}
-              fileName={file?.name || 'estimate.pdf'}
-              selectedLineItem={selectedLineItem}
-              onSelectLineItem={setSelectedLineItem}
-            />
-          ) : (
-            <FileUpload onFileSelect={handleFileProcess} />
-          )}
-        </main>
-        <footer className="text-center mt-8 text-slate-500 text-sm">
-          <p>&copy; {new Date().getFullYear()} Budget Reconciler Inc. All rights reserved.</p>
-        </footer>
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-slate-600">Loading...</p>
+        </div>
       </div>
+    );
+  }
+
+  // Show auth form if not logged in
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-slate-900">Insurance Budget Reconciler</h1>
+            <p className="text-slate-600 mt-2">Professional budget management for insurance claims</p>
+          </div>
+          <AuthForm 
+            mode={authMode} 
+            onToggleMode={() => setAuthMode(authMode === 'signin' ? 'signup' : 'signin')} 
+          />
+        </div>
+      </div>
+    );
+  }
+
+  const renderCurrentPage = () => {
+    switch (currentPage) {
+      case 'customers':
+        return <CustomerList />;
+      case 'subcontractors':
+        return <SubcontractorList />;
+      case 'estimates':
+        return <div className="text-center p-8">Estimates page coming soon...</div>;
+      case 'work-orders':
+        return <div className="text-center p-8">Work Orders page coming soon...</div>;
+      default:
+        return (
+          <div className="space-y-8">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-slate-900">Upload Insurance Estimate</h2>
+              <p className="text-slate-600 mt-2">Upload a PDF estimate to generate a scaled budget</p>
+            </div>
+            {isLoading ? (
+              <Loader />
+            ) : error ? (
+              <ErrorMessage message={error} onReset={handleReset} />
+            ) : reconciledResult && budgetData ? (
+              <BudgetDisplay 
+                budgetData={budgetData}
+                reconciledResult={reconciledResult}
+                onCategoriesChange={handleCategoriesChange}
+                onBudgetUpdate={handleBudgetUpdate}
+                onReset={handleReset}
+                fileName={file?.name || 'estimate.pdf'}
+                selectedLineItem={selectedLineItem}
+                onSelectLineItem={setSelectedLineItem}
+              />
+            ) : (
+              <FileUpload onFileSelect={handleFileProcess} />
+            )}
+          </div>
+        );
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-100">
+      <Navigation currentPage={currentPage} onPageChange={setCurrentPage} />
+      
+      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          {renderCurrentPage()}
+        </div>
+        </main>
     </div>
   );
 };

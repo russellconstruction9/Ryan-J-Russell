@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { supabase, type Subcontractor } from '../lib/supabase';
+import { useAuth } from '../hooks/useAuth';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
 import { Loader } from './Loader';
 import { ErrorMessage } from './ErrorMessage';
@@ -10,25 +12,10 @@ interface WorkOrderFormProps {
   onBack: () => void;
 }
 
-const SUBCONTRACTORS = [
-  'General Contractor',
-  'Demolition Contractor',
-  'Drywall Contractor', 
-  'Painting Contractor',
-  'Flooring Contractor',
-  'Plumbing Contractor',
-  'Electrical Contractor',
-  'HVAC Contractor',
-  'Roofing Contractor',
-  'Carpentry/Finish Contractor',
-  'Tile Contractor',
-  'Insulation Contractor',
-  'Windows & Doors Contractor',
-  'Landscaping Contractor',
-  'Other'
-];
-
 export const WorkOrderForm: React.FC<WorkOrderFormProps> = ({ lineItem, onBack }) => {
+  const { user } = useAuth();
+  const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
+  const [loadingSubcontractors, setLoadingSubcontractors] = useState(true);
   const [formData, setFormData] = useState<Omit<WorkOrderData, 'lineItemId'>>({
     category: lineItem.category,
     materialAmount: lineItem.materialScaled,
@@ -41,6 +28,30 @@ export const WorkOrderForm: React.FC<WorkOrderFormProps> = ({ lineItem, onBack }
     specialRequirements: ''
   });
   
+  // Load user's subcontractors
+  React.useEffect(() => {
+    const fetchSubcontractors = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('subcontractors')
+          .select('*')
+          .eq('is_preferred', true)
+          .order('name');
+        
+        if (error) throw error;
+        setSubcontractors(data || []);
+      } catch (error) {
+        console.error('Error fetching subcontractors:', error);
+      } finally {
+        setLoadingSubcontractors(false);
+      }
+    };
+
+    fetchSubcontractors();
+  }, [user]);
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generatedWorkOrder, setGeneratedWorkOrder] = useState<GeneratedWorkOrder | null>(null);
@@ -197,17 +208,28 @@ export const WorkOrderForm: React.FC<WorkOrderFormProps> = ({ lineItem, onBack }
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 Select Subcontractor *
               </label>
-              <select
-                value={formData.subcontractor}
-                onChange={(e) => handleInputChange('subcontractor', e.target.value)}
-                className="w-full border border-slate-300 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
-                required
-              >
-                <option value="">Choose a subcontractor...</option>
-                {SUBCONTRACTORS.map(contractor => (
-                  <option key={contractor} value={contractor}>{contractor}</option>
-                ))}
-              </select>
+              {loadingSubcontractors ? (
+                <div className="text-sm text-slate-500">Loading subcontractors...</div>
+              ) : (
+                <select
+                  value={formData.subcontractor}
+                  onChange={(e) => handleInputChange('subcontractor', e.target.value)}
+                  className="w-full border border-slate-300 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  required
+                >
+                  <option value="">Choose a subcontractor...</option>
+                  {subcontractors.map(contractor => (
+                    <option key={contractor.id} value={`${contractor.name} (${contractor.company_name})`}>
+                      {contractor.name} - {contractor.company_name} ({contractor.specialty})
+                    </option>
+                  ))}
+                </select>
+              )}
+              {!loadingSubcontractors && subcontractors.length === 0 && (
+                <p className="text-sm text-slate-500 mt-1">
+                  No preferred subcontractors found. Add some in the Subcontractors page.
+                </p>
+              )}
             </div>
           </div>
 
