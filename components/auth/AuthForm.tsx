@@ -85,7 +85,14 @@ export const AuthForm: React.FC<AuthFormProps> = ({ mode, onToggleMode }) => {
         
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-md p-3">
-            <p className="text-red-700 text-sm">{error}</p>
+            <p className="text-red-700 text-sm">
+              {error.includes('Invalid login credentials') 
+                ? 'Invalid email or password. Please check your credentials and try again.'
+                : error.includes('Database error saving new user')
+                ? 'There was an issue creating your account. Please try again or contact support.'
+                : error
+              }
+            </p>
           </div>
         )}
         
