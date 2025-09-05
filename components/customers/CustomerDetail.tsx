@@ -650,7 +650,7 @@ export const CustomerDetail: React.FC<CustomerDetailProps> = ({ customer, onBack
             {/* Budget Versions */}
             {budgetVersions.length > 0 && (
               <div className="mb-6">
-                <h4 className="text-md font-medium text-slate-700 mb-3">Saved Budget Versions</h4>
+                <h4 className="text-md font-medium text-slate-700 mb-3">Budget History</h4>
                 <div className="space-y-2">
                   {budgetVersions.map((version) => (
                     <div
@@ -660,7 +660,7 @@ export const CustomerDetail: React.FC<CustomerDetailProps> = ({ customer, onBack
                       <div className="flex items-center justify-between">
                         <div>
                           <span className="font-medium text-slate-900">
-                            Version {version.version_number}
+                            {version.version_number === 1 ? 'Original Budget' : `Revision ${version.version_number - 1}`}
                           </span>
                           <p className="text-sm text-slate-500">
                             {formatDate(version.created_at)}
@@ -683,7 +683,7 @@ export const CustomerDetail: React.FC<CustomerDetailProps> = ({ customer, onBack
                           }}
                           className="text-sm text-indigo-600 hover:text-indigo-800"
                         >
-                          Load Version
+                          {version.version_number === 1 ? 'View Original' : 'Load Revision'}
                         </button>
                       </div>
                     </div>
