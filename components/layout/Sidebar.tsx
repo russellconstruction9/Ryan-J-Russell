@@ -16,6 +16,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange }) =
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
    { id: 'upload', label: 'Upload Estimate', icon: '📤' },
+    { id: 'calendar', label: 'Calendar', icon: '📅' },
     { id: 'customers', label: 'Customers', icon: '👥' },
     { id: 'subcontractors', label: 'Subcontractors', icon: '🔨' },
     { id: 'estimates', label: 'Estimates', icon: '📄' },

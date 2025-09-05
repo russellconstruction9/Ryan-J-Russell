@@ -7,6 +7,7 @@ import { Dashboard } from './components/dashboard/Dashboard';
 import { UploadPage } from './components/upload/UploadPage';
 import { CustomerList } from './components/customers/CustomerList';
 import { SubcontractorList } from './components/subcontractors/SubcontractorList';
+import { Calendar } from './components/calendar/Calendar';
 
 const App: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
@@ -49,6 +50,8 @@ const App: React.FC = () => {
        return <Dashboard onPageChange={setCurrentPage} />;
      case 'upload':
        return <UploadPage />;
+      case 'calendar':
+        return <Calendar />;
       case 'customers':
         return <CustomerList />;
       case 'subcontractors':
