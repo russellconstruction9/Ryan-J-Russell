@@ -10,19 +10,71 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Types for our database tables
+export interface Company {
+  id: string;
+  name: string;
+  slug: string;
+  domain?: string;
+  logo_url?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  phone?: string;
+  website?: string;
+  industry?: string;
+  company_size?: string;
+  settings?: any;
+  subscription_status: 'trial' | 'active' | 'past_due' | 'canceled' | 'paused';
+  subscription_plan: string;
+  trial_ends_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompanyUser {
+  id: string;
+  company_id: string;
+  user_id: string;
+  role: 'owner' | 'admin' | 'manager' | 'member';
+  permissions?: any;
+  invited_by?: string;
+  joined_at: string;
+  last_active_at?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  company?: Company;
+}
+
+export interface CompanyInvitation {
+  id: string;
+  company_id: string;
+  email: string;
+  role: 'admin' | 'manager' | 'member';
+  invited_by: string;
+  invitation_token: string;
+  expires_at: string;
+  accepted_at?: string;
+  created_at: string;
+  company?: Company;
+}
+
 export interface Profile {
   id: string;
   email: string;
   full_name?: string;
   company_name?: string;
   phone?: string;
+  company_id?: string;
+  current_company_id?: string;
   created_at: string;
   updated_at: string;
 }
 
 export interface Customer {
   id: string;
-  user_id: string;
+  company_id: string;
   name: string;
   email?: string;
   phone?: string;
@@ -37,7 +89,7 @@ export interface Customer {
 
 export interface Subcontractor {
   id: string;
-  user_id: string;
+  company_id: string;
   name: string;
   company_name?: string;
   email?: string;
@@ -57,7 +109,7 @@ export interface Subcontractor {
 
 export interface InsuranceEstimate {
   id: string;
-  user_id: string;
+  company_id: string;
   customer_id?: string;
   file_name: string;
   file_url?: string;
@@ -75,7 +127,7 @@ export interface InsuranceEstimate {
 
 export interface WorkOrder {
   id: string;
-  user_id: string;
+  company_id: string;
   estimate_id: string;
   subcontractor_id?: string;
   work_order_number: string;
@@ -97,7 +149,7 @@ export interface WorkOrder {
 export interface BudgetVersion {
   id: string;
   estimate_id: string;
-  user_id: string;
+  company_id: string;
   version_number: number;
   budget_data?: any;
   reconciled_data?: any;
@@ -107,7 +159,7 @@ export interface BudgetVersion {
 
 export interface CalendarEvent {
   id: string;
-  user_id: string;
+  company_id: string;
   customer_id?: string;
   subcontractor_id?: string;
   title: string;
