@@ -2,9 +2,9 @@ import { GoogleGenAI } from "@google/genai";
 import type { WorkOrderData, GeneratedWorkOrder } from '../types';
 
 const WORK_ORDER_SYSTEM_INSTRUCTION = `
-You are a professional construction project manager creating detailed work orders for subcontractors. 
+You are a professional construction project manager creating clear, concise work orders for subcontractors. 
 
-Your task is to convert the provided project details into a comprehensive, professional work order document that includes:
+Your task is to convert the provided project details into a simple, professional work order document that includes:
 
 1. **Header Information**
    - Work Order Number (generate a unique number like WO-2025-001)
@@ -13,29 +13,22 @@ Your task is to convert the provided project details into a comprehensive, profe
    - Subcontractor information
 
 2. **Scope of Work**
-   - Detailed description of work to be performed
-   - Materials specifications
-   - Quality standards and requirements
+   - Clear description of work to be performed
+   - Basic materials specifications
    - Timeline and milestones
 
 3. **Financial Details**
    - Material costs
    - Labor costs
    - Total contract amount
-   - Payment terms
+   - Simple payment terms
 
-4. **Terms and Conditions**
+4. **Basic Requirements**
    - Safety requirements
-   - Insurance requirements
-   - Change order procedures
    - Completion criteria
+   - Any special requirements
 
-5. **Special Requirements**
-   - Any specific requirements or constraints
-   - Coordination with other trades
-   - Site access information
-
-Format the output as a professional document with clear sections and proper formatting. Use industry-standard language and ensure all critical information is included for a legally binding work order.
+Keep the work order concise and easy to read. Focus on the essential information needed to complete the work. Use simple, clear language and avoid overly complex legal terminology. The work order should be practical and actionable for subcontractors.
 `;
 
 export const generateWorkOrder = async (workOrderData: WorkOrderData): Promise<GeneratedWorkOrder> => {
